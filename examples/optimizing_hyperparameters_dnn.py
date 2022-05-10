@@ -14,17 +14,20 @@ nlayers = 2
 
 # Market under study. If it not one of the standard ones, the file name
 # has to be provided, where the file has to be a csv file
-dataset = 'NP'
+dataset = 'BRA'
+# dataset = 'BRA'
 
 # Number of years (a year is 364 days) in the test dataset.
-years_test = 2
+years_test = 1
 
 # Optional parameters for selecting the test dataset, if either of them is not provided, 
 # the test dataset is built using the years_test parameter. They should either be one of
 # the date formats existing in python or a string with the following format
 # "%d/%m/%Y %H:%M"
-begin_test_date = None
-end_test_date = None
+begin_test_date = '13/01/2021'
+end_test_date = '12/01/2022'
+# begin_test_date = '25/12/2017'
+# end_test_date = '24/12/2018'
 
 # Boolean that selects whether the validation and training datasets are shuffled
 shuffle_train = 1
@@ -36,13 +39,13 @@ data_augmentation = 0
 new_hyperopt = 1
 
 # Number of years used in the training dataset for recalibration
-calibration_window = 4
+calibration_window = 2
 
 # Unique identifier to read the trials file of hyperparameter optimization
-experiment_id = 1
+experiment_id = 3
 
 # Number of iterations for hyperparameter optimization
-max_evals = 1500
+max_evals = 800
 
 path_datasets_folder = "./datasets/"
 path_hyperparameters_folder = "./experimental_files/"

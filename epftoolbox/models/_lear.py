@@ -14,7 +14,7 @@ import os
 from sklearn.linear_model import LassoLarsIC, Lasso
 from epftoolbox.data import scaling
 from epftoolbox.data import read_data
-from epftoolbox.evaluation import MAE, sMAPE
+from epftoolbox.evaluation import rMAE, MAE, sMAPE
 
 from sklearn.utils._testing import ignore_warnings
 from sklearn.exceptions import ConvergenceWarning
@@ -333,7 +333,8 @@ class LEAR(object):
 def evaluate_lear_in_test_dataset(path_datasets_folder=os.path.join('.', 'datasets'), 
                                   path_recalibration_folder=os.path.join('.', 'experimental_files'),
                                   dataset='PJM', years_test=2, calibration_window=364 * 3, 
-                                  begin_test_date=None, end_test_date=None):
+                                  begin_test_date=None, end_test_date=None, func_min_threshold=None,
+                                 func_max_threshold=None):
     """Function for easy evaluation of the LEAR model in a test dataset using daily recalibration. 
     
     The test dataset is defined by a market name and the test dates dates. The function
@@ -372,7 +373,13 @@ def evaluate_lear_in_test_dataset(path_datasets_folder=os.path.join('.', 'datase
         Optional parameter to select the test dataset. Used in combination with the argument
         ``begin_test_date``. If either of them is not provided, the test dataset is built using the 
         ``years_test`` argument. ``end_test_date`` should either be a string with the following 
-        format ``"%d/%m/%Y %H:%M"``, or a datetime object.       
+        format ``"%d/%m/%Y %H:%M"``, or a datetime object.   
+    func_min_threshold : function, optional
+        Function to retieve a float value to be used as a minimum threshold for forecasts. This function
+        should receive a date and return the wanted threshold
+    func_max_threshold : float, optional
+        Function to retieve a float value to be used as a maximum threshold for forecasts. This function
+        should receive a date and return the wanted threshold    
     
     Returns
     -------
@@ -405,7 +412,7 @@ def evaluate_lear_in_test_dataset(path_datasets_folder=os.path.join('.', 'datase
     model = LEAR(calibration_window=calibration_window)
 
     # For loop over the recalibration dates
-    for date in forecast_dates:
+    for idx, date in enumerate(forecast_dates):
 
         # For simulation purposes, we assume that the available data is
         # the data up to current date where the prices of current date are not known
@@ -418,15 +425,28 @@ def evaluate_lear_in_test_dataset(path_datasets_folder=os.path.join('.', 'datase
         # for the next day
         Yp = model.recalibrate_and_forecast_next_day(df=data_available, next_day_date=date, 
                                                      calibration_window=calibration_window)
+
+        # Clips the current predictions array based on threshold values
+        if func_min_threshold != None and func_max_threshold != None:
+          np.clip(Yp, func_min_threshold(date), func_max_threshold(date), out=Yp)
+
         # Saving the current prediction
         forecast.loc[date, :] = Yp
 
+        # extracting values from dataframe to ndarray
+        p_real = real_values.loc[:date].values.squeeze()
+        p_pred = forecast.loc[:date].values.squeeze()
+
         # Computing metrics up-to-current-date
-        mae = np.mean(MAE(forecast.loc[:date].values.squeeze(), real_values.loc[:date].values)) 
-        smape = np.mean(sMAPE(forecast.loc[:date].values.squeeze(), real_values.loc[:date].values)) * 100
+        rmae = 9999.999
+        if(idx > 0):
+          rmae = np.mean(rMAE(p_real, p_pred, m='D'))
+
+        mae = np.mean(MAE(p_real, p_pred))
+        smape = np.mean(sMAPE(p_real, p_pred)) * 100
 
         # Pringint information
-        print('{} - sMAPE: {:.2f}%  |  MAE: {:.3f}'.format(str(date)[:10], smape, mae))
+        print('{} - sMAPE: {:.3f}%  |  MAE: {:.3f} | rMAE: {:.3f}'.format(str(date)[:10], smape, mae, rmae))
 
         # Saving forecast
         forecast.to_csv(forecast_file_path)
